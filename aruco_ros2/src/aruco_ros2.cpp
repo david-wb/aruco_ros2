@@ -127,6 +127,7 @@ private:
                 cv::Mat rvecs, tvecs;
                 cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F); // No lens distortion
                 cv::aruco::estimatePoseSingleMarkers(marker_corners, marker_size_, camera_matrix_, camera_distortion_, rvecs, tvecs);
+                cv::aruco::drawDetectedMarkers(image, marker_corners, marker_ids);
 
                 for (size_t i = 0; i < marker_ids.size(); ++i)
                 {
@@ -165,29 +166,21 @@ private:
 
                     tf_broadcaster_->sendTransform(marker_transform);
 
-                    RCLCPP_INFO(this->get_logger(), "Detected marker %d", marker_ids[i]);
-
-                    // Get the transform from 'map' to 'aruco_marker_<id>'
-                    auto map_to_camera = tf_buffer_.lookupTransform("map", camera_frame_, tf2::TimePointZero);
-
-                    tf2::Transform tf_map_to_camera, tf_camera_to_marker, tf_map_to_marker;
-                    tf2::fromMsg(map_to_camera.transform, tf_map_to_camera);
-                    tf2::fromMsg(marker_transform.transform, tf_camera_to_marker);
-                    tf_map_to_marker = tf_map_to_camera * tf_camera_to_marker;
-
                     // Convert to geometry_msgs::Pose
                     geometry_msgs::msg::PoseStamped marker_pose;
-                    marker_pose.pose.position.x = tf_map_to_marker.getOrigin().x();
-                    marker_pose.pose.position.y = tf_map_to_marker.getOrigin().y();
-                    marker_pose.pose.position.z = tf_map_to_marker.getOrigin().z();
-                    marker_pose.pose.orientation.x = tf_map_to_marker.getRotation().x();
-                    marker_pose.pose.orientation.y = tf_map_to_marker.getRotation().y();
-                    marker_pose.pose.orientation.z = tf_map_to_marker.getRotation().z();
-                    marker_pose.pose.orientation.w = tf_map_to_marker.getRotation().w();
+                    marker_pose.header.stamp = msg->header.stamp;
+                    marker_pose.header.frame_id = camera_frame_;
+                    marker_pose.pose.position.x = marker_transform.transform.translation.x;
+                    marker_pose.pose.position.y = marker_transform.transform.translation.y;
+                    marker_pose.pose.position.z = marker_transform.transform.translation.z;
+                    marker_pose.pose.orientation.x = marker_transform.transform.rotation.x;
+                    marker_pose.pose.orientation.y = marker_transform.transform.rotation.y;
+                    marker_pose.pose.orientation.z = marker_transform.transform.rotation.z;
+                    marker_pose.pose.orientation.w = marker_transform.transform.rotation.w;
 
                     // Populate Marker message
                     aruco_ros2_msgs::msg::Marker marker;
-                    marker.header.frame_id = "map";
+                    marker.header.frame_id = camera_frame_;
                     marker.header.stamp = msg->header.stamp;
                     marker.id = marker_ids[i];
                     marker.pose = marker_pose;
@@ -198,7 +191,7 @@ private:
                     marker_array.markers.push_back(marker);
 
                     // Draw 3D axis on the marker in the image
-                    cv::aruco::drawAxis(image, camera_matrix_, camera_distortion_, rvec, tvec, marker_size_ * 0.5f);
+                    // cv::aruco::drawAxis(image, camera_matrix_, camera_distortion_, rvec, tvec, marker_size_ * 0.7f);
                     // draw3dAxis(image, tvec, rvec, 1);
                 }
             }
