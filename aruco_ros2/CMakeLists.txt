@@ -15,6 +15,8 @@ find_package(cv_bridge REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(aruco_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -33,6 +35,8 @@ ament_target_dependencies(aruco_ros2
   tf2_ros
   geometry_msgs
   sensor_msgs
+  aruco_msgs
+  tf2_geometry_msgs
 )
 
 # Include OpenCV headers
@@ -40,6 +44,7 @@ target_include_directories(aruco_ros2 PRIVATE ${OpenCV_INCLUDE_DIRS})
 
 # Link OpenCV libraries to your node
 target_link_libraries(aruco_ros2 ${OpenCV_LIBRARIES})
+
 
 # Install the executable
 install(TARGETS
