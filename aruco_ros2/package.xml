@@ -19,7 +19,7 @@
   <build_depend>tf2_ros</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
-  <build_depend>aruco_msgs</build_depend>
+  <build_depend>aruco_ros2_msgs</build_depend>
 
   <exec_depend>opencv</exec_depend>
   <exec_depend>image_transport</exec_depend>
@@ -27,7 +27,7 @@
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>aruco_msgs</exec_depend>
+  <exec_depend>aruco_ros2_msgs</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

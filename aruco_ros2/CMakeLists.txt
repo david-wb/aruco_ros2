@@ -15,7 +15,7 @@ find_package(cv_bridge REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(aruco_msgs REQUIRED)
+find_package(aruco_ros2_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
 # uncomment the following section in order to fill in
@@ -35,7 +35,7 @@ ament_target_dependencies(aruco_ros2
   tf2_ros
   geometry_msgs
   sensor_msgs
-  aruco_msgs
+  aruco_ros2_msgs
   tf2_geometry_msgs
 )
 
