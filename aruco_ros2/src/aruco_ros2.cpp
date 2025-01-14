@@ -24,7 +24,7 @@ public:
         this->declare_parameter("camera_frame", "camera_rgb_optical_frame");
         this->declare_parameter("image_topic", "/camera/color/image_raw");
         this->declare_parameter("camera_info_topic", "/camera/color/camera_info");
-        this->declare_parameter("dictionary", "DICT_4X4_1000");
+        this->declare_parameter("dictionary", "DICT_ARUCO_ORIGINAL");
 
         marker_size_ = this->get_parameter("marker_size").as_double();
         camera_frame_ = this->get_parameter("camera_frame").as_string();
@@ -124,31 +124,35 @@ private:
             if (!marker_ids.empty())
             {
                 // Estimate the pose of the ArUco markers (using solvePnP)
-                cv::Mat rvecs, tvecs;
+                std::vector<cv::Vec3d> tvecs;
+                std::vector<cv::Vec3d> rvecs;
+
                 cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F); // No lens distortion
-                cv::aruco::estimatePoseSingleMarkers(marker_corners, marker_size_, camera_matrix_, camera_distortion_, rvecs, tvecs);
-                cv::aruco::drawDetectedMarkers(image, marker_corners, marker_ids);
+                cv::aruco::estimatePoseSingleMarkers(marker_corners, marker_size_, camera_matrix_, dist_coeffs, rvecs, tvecs);
+
+                if (tvecs.empty() || rvecs.empty())
+                {
+                    RCLCPP_WARN(this->get_logger(), "Pose estimation failed for marker.");
+                    return;
+                }
 
                 for (size_t i = 0; i < marker_ids.size(); ++i)
                 {
-                    // Extract rotation and translation vectors for the current marker
-                    cv::Mat rvec = rvecs.row(static_cast<int>(i));
-                    cv::Mat tvec = tvecs.row(static_cast<int>(i));
+                    const cv::Vec3d &rvec = rvecs[i]; // Rotation vector for marker i
+                    const cv::Vec3d &tvec = tvecs[i]; // Translation vector for marker i
 
-                    if (tvec.empty() || rvec.empty())
+                    if (isVec3dZero(tvec))
                     {
-                        RCLCPP_WARN(this->get_logger(), "Pose estimation failed for marker.");
-                        return;
+                        continue;
                     }
-
                     // Broadcast transform from 'camera_frame' to 'aruco_marker_<id>'
                     geometry_msgs::msg::TransformStamped marker_transform;
                     marker_transform.header.stamp = this->get_clock()->now();
                     marker_transform.header.frame_id = camera_frame_;                                  // Parent frame
                     marker_transform.child_frame_id = "aruco_marker_" + std::to_string(marker_ids[i]); // Marker-specific frame
-                    marker_transform.transform.translation.x = tvec.at<double>(0);
-                    marker_transform.transform.translation.y = tvec.at<double>(1);
-                    marker_transform.transform.translation.z = tvec.at<double>(2);
+                    marker_transform.transform.translation.x = tvec[0];
+                    marker_transform.transform.translation.y = tvec[1];
+                    marker_transform.transform.translation.z = tvec[2];
 
                     tf2::Quaternion quaternion;
                     cv::Mat rotation_matrix;
@@ -196,6 +200,8 @@ private:
                 }
             }
 
+            cv::aruco::drawDetectedMarkers(image, marker_corners, marker_ids);
+
             // Convert OpenCV image back to ROS message
             auto overlay_msg = cv_bridge::CvImage(msg->header, "bgr8", image).toImageMsg();
             image_pub_->publish(*overlay_msg);
@@ -211,6 +217,26 @@ private:
         {
             RCLCPP_WARN(this->get_logger(), "TF2 exception: %s", e.what());
         }
+    }
+
+    void logCvMat(const cv::Mat &mat, const std::string &name = "Matrix")
+    {
+        std::cout << name << " (" << mat.rows << "x" << mat.cols << ", type=" << mat.type() << "):\n";
+
+        for (int i = 0; i < mat.rows; ++i)
+        {
+            for (int j = 0; j < mat.cols; ++j)
+            {
+                std::cout << mat.at<double>(i, j) << " ";
+            }
+            std::cout << "\n";
+        }
+        std::cout << std::endl;
+    }
+
+    void logVec3d(const cv::Vec3d &vec, const std::string &name = "vec")
+    {
+        std::cout << name << " Vec3d(" << vec[0] << ", " << vec[1] << ", " << vec[2] << ")" << std::endl;
     }
 
     void draw3dAxis(cv::Mat &Image, cv::Mat &tvec, cv::Mat &rvec, int lineSize)
@@ -284,6 +310,11 @@ private:
         {
             throw std::invalid_argument("Invalid dictionary");
         }
+    }
+
+    bool isVec3dZero(const cv::Vec3d &vec)
+    {
+        return vec[0] == 0.0 && vec[1] == 0.0 && vec[2] == 0.0;
     }
 
     // ROS 2 Publisher for ArUco marker info
