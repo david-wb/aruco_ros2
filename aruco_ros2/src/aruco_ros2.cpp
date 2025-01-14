@@ -108,7 +108,7 @@ private:
 
         aruco_ros2_msgs::msg::MarkerArray marker_array;
         marker_array.header.stamp = this->get_clock()->now();
-        marker_array.header.frame_id = "map";
+        marker_array.header.frame_id = camera_frame_;
 
         try
         {
