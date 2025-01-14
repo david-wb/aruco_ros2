@@ -176,14 +176,14 @@ private:
                     tf_map_to_marker = tf_map_to_camera * tf_camera_to_marker;
 
                     // Convert to geometry_msgs::Pose
-                    geometry_msgs::msg::Pose marker_pose;
-                    marker_pose.position.x = tf_map_to_marker.getOrigin().x();
-                    marker_pose.position.y = tf_map_to_marker.getOrigin().y();
-                    marker_pose.position.z = tf_map_to_marker.getOrigin().z();
-                    marker_pose.orientation.x = tf_map_to_marker.getRotation().x();
-                    marker_pose.orientation.y = tf_map_to_marker.getRotation().y();
-                    marker_pose.orientation.z = tf_map_to_marker.getRotation().z();
-                    marker_pose.orientation.w = tf_map_to_marker.getRotation().w();
+                    geometry_msgs::msg::PoseStamped marker_pose;
+                    marker_pose.pose.position.x = tf_map_to_marker.getOrigin().x();
+                    marker_pose.pose.position.y = tf_map_to_marker.getOrigin().y();
+                    marker_pose.pose.position.z = tf_map_to_marker.getOrigin().z();
+                    marker_pose.pose.orientation.x = tf_map_to_marker.getRotation().x();
+                    marker_pose.pose.orientation.y = tf_map_to_marker.getRotation().y();
+                    marker_pose.pose.orientation.z = tf_map_to_marker.getRotation().z();
+                    marker_pose.pose.orientation.w = tf_map_to_marker.getRotation().w();
 
                     // Populate Marker message
                     aruco_ros2_msgs::msg::Marker marker;
