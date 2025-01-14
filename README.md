@@ -1,10 +1,10 @@
 # aruco_ros2
 
-A ros2 package for detecting Aruco markers. This package has been tested in ros2 Humble, Iron, and Jazzy.
+A ros2 package for [detecting ArUco markers](https://docs.opencv.org/4.x/d5/dae/tutorial_aruco_detection.html). This package has been tested in ros2 Humble, Iron, and Jazzy.
 
 # Dependencies
 
-You will need OpenCV.
+The package depends at the very leas on ros2 and OpenCV. You can install OpenCV with:
 
 ```bash
 sudo apt install libopencv-dev
