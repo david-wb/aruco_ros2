@@ -70,7 +70,7 @@ public:
 private:
     void camera_info_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
     {
-        camera_matrix_ = cv::Mat(3, 3, CV_64F, const_cast<double *>(msg->k.data()));
+        camera_matrix_ = cv::Mat(3, 3, CV_64F, (void *)msg->k.data()).clone();
         camera_distortion_ = cv::Mat::zeros(1, 4, CV_64F);
         if (!msg->d.empty())
         {
@@ -97,6 +97,20 @@ private:
         }
     }
 
+    void log_marker_ids(const std::vector<int> &ids)
+    {
+        std::stringstream ss;
+        for (size_t i = 0; i < ids.size(); ++i)
+        {
+            ss << ids[i];
+            if (i != ids.size() - 1)
+            {
+                ss << ", "; // Add a separator between elements
+            }
+        }
+        RCLCPP_INFO(this->get_logger(), "marker ids: %s", ss.str().c_str());
+    }
+
     // Callback for image subscription
     void image_callback(const sensor_msgs::msg::Image::ConstSharedPtr msg)
     {
@@ -119,16 +133,19 @@ private:
             // Detect ArUco markers
             std::vector<int> marker_ids;
             std::vector<std::vector<cv::Point2f>> marker_corners, rejected_candidates;
-            cv::aruco::detectMarkers(image, aruco_dict_, marker_corners, marker_ids, aruco_parameters_, rejected_candidates);
+            cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F);
+            cv::aruco::detectMarkers(image, aruco_dict_, marker_corners, marker_ids, aruco_parameters_, rejected_candidates, camera_matrix_, camera_distortion_);
 
             if (!marker_ids.empty())
             {
+                log_marker_ids(marker_ids);
+
                 // Estimate the pose of the ArUco markers (using solvePnP)
                 std::vector<cv::Vec3d> tvecs;
                 std::vector<cv::Vec3d> rvecs;
 
-                cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F); // No lens distortion
-                cv::aruco::estimatePoseSingleMarkers(marker_corners, marker_size_, camera_matrix_, dist_coeffs, rvecs, tvecs);
+                // cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F); // No lens distortion
+                cv::aruco::estimatePoseSingleMarkers(marker_corners, marker_size_, camera_matrix_, camera_distortion_, rvecs, tvecs);
 
                 if (tvecs.empty() || rvecs.empty())
                 {
@@ -143,6 +160,7 @@ private:
 
                     if (isVec3dZero(tvec))
                     {
+                        RCLCPP_WARN(this->get_logger(), "tvec is zero");
                         continue;
                     }
                     // Broadcast transform from 'camera_frame' to 'aruco_marker_<id>'
@@ -153,6 +171,9 @@ private:
                     marker_transform.transform.translation.x = tvec[0];
                     marker_transform.transform.translation.y = tvec[1];
                     marker_transform.transform.translation.z = tvec[2];
+
+                    RCLCPP_INFO(this->get_logger(), "detected marker: %d", marker_ids[i]);
+                    logVec3d(tvec, "tvec");
 
                     tf2::Quaternion quaternion;
                     cv::Mat rotation_matrix;
@@ -195,19 +216,22 @@ private:
                     marker_array.markers.push_back(marker);
 
                     // Draw 3D axis on the marker in the image
-                    // cv::aruco::drawAxis(image, camera_matrix_, camera_distortion_, rvec, tvec, marker_size_ * 0.7f);
-                    // draw3dAxis(image, tvec, rvec, 1);
+                    cv::aruco::drawAxis(image, camera_matrix_, camera_distortion_, rvec, tvec, marker_size_ * 0.7f);
+                    draw3dAxis(image, tvec, rvec, 1);
                 }
-            }
 
-            cv::aruco::drawDetectedMarkers(image, marker_corners, marker_ids);
+                cv::aruco::drawDetectedMarkers(image, marker_corners, marker_ids);
+            }
 
             // Convert OpenCV image back to ROS message
             auto overlay_msg = cv_bridge::CvImage(msg->header, "bgr8", image).toImageMsg();
             image_pub_->publish(*overlay_msg);
 
             // Publish the marker array
-            marker_array_pub_->publish(marker_array);
+            if (!marker_array.markers.empty())
+            {
+                marker_array_pub_->publish(marker_array);
+            }
         }
         catch (const cv_bridge::Exception &e)
         {
@@ -239,7 +263,7 @@ private:
         std::cout << name << " Vec3d(" << vec[0] << ", " << vec[1] << ", " << vec[2] << ")" << std::endl;
     }
 
-    void draw3dAxis(cv::Mat &Image, cv::Mat &tvec, cv::Mat &rvec, int lineSize)
+    void draw3dAxis(cv::Mat &Image, const cv::Vec3d &tvec, const cv::Vec3d &rvec, int lineSize)
     {
         float size = marker_size_ * 0.6;
         cv::Mat objectPoints(4, 3, CV_32FC1);
