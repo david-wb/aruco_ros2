@@ -138,8 +138,6 @@ private:
 
             if (!marker_ids.empty())
             {
-                log_marker_ids(marker_ids);
-
                 // Estimate the pose of the ArUco markers (using solvePnP)
                 std::vector<cv::Vec3d> tvecs;
                 std::vector<cv::Vec3d> rvecs;
@@ -172,8 +170,8 @@ private:
                     marker_transform.transform.translation.y = tvec[1];
                     marker_transform.transform.translation.z = tvec[2];
 
-                    RCLCPP_INFO(this->get_logger(), "detected marker: %d", marker_ids[i]);
-                    logVec3d(tvec, "tvec");
+                    // RCLCPP_INFO(this->get_logger(), "detected marker: %d", marker_ids[i]);
+                    // logVec3d(tvec, "tvec");
 
                     tf2::Quaternion quaternion;
                     cv::Mat rotation_matrix;
