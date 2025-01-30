@@ -3,10 +3,10 @@
 <package format="3">
   <name>aruco_ros2</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>A ros2 node for detecting aruco markers in camera images</description>
   <maintainer email="davewbrwn@gmail.com">David Brown</maintainer>
   <license>MIT</license>
-  <url type="website">https://github.com/david-wb/aruco_ros2</url>
+  <url type="website">https://github.com/namo-robotics/aruco_ros2</url>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
