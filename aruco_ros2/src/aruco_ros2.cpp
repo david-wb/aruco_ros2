@@ -12,6 +12,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include "rclcpp/wait_for_message.hpp"
 
 using namespace std::chrono_literals;
 
@@ -52,10 +53,6 @@ public:
         marker_info_publisher_ = this->create_publisher<std_msgs::msg::String>("aruco_marker_info", 10);
         marker_array_pub_ = this->create_publisher<aruco_ros2_msgs::msg::MarkerArray>("/aruco/markers", 10);
 
-        // Camera info subscriber to get intrinsic parameters
-        camera_info_subscriber_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
-            camera_info_topic_, 10, std::bind(&ArucoRos2Node::camera_info_callback, this, std::placeholders::_1));
-
         // Image publisher
         image_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/aruco/result", 10);
 
@@ -65,19 +62,27 @@ public:
         // Set up ArUco marker detector
         aruco_dict_ = cv::aruco::getPredefinedDictionary(this->dictNameToEnum(dictionary_));
         aruco_parameters_ = cv::aruco::DetectorParameters::create();
+
+        RCLCPP_INFO(this->get_logger(), "Waiting for camera info.");
+        sensor_msgs::msg::CameraInfo camera_info;
+        rclcpp::wait_for_message<sensor_msgs::msg::CameraInfo>(
+            camera_info,
+            shared_from_this(), camera_info_topic_);
+        RCLCPP_INFO(this->get_logger(), "Camera info received.");
+        process_camera_info(camera_info);
     }
 
 private:
-    void camera_info_callback(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
+    void process_camera_info(const sensor_msgs::msg::CameraInfo &msg)
     {
-        camera_matrix_ = cv::Mat(3, 3, CV_64F, (void *)msg->k.data()).clone();
+        camera_matrix_ = cv::Mat(3, 3, CV_64F, (void *)msg.k.data()).clone();
         camera_distortion_ = cv::Mat::zeros(1, 4, CV_64F);
-        if (!msg->d.empty())
+        if (!msg.d.empty())
         {
-            camera_distortion_ = cv::Mat(1, static_cast<int>(msg->d.size()), CV_64F);
-            for (size_t i = 0; i < msg->d.size(); ++i)
+            camera_distortion_ = cv::Mat(1, static_cast<int>(msg.d.size()), CV_64F);
+            for (size_t i = 0; i < msg.d.size(); ++i)
             {
-                camera_distortion_.at<double>(0, i) = msg->d[i];
+                camera_distortion_.at<double>(0, i) = msg.d[i];
             }
         }
 
@@ -89,10 +94,10 @@ private:
                                             "\tHeight: %d\n"
                                             "\tK (intrinsic matrix): [%f, %f, %f, %f, %f, %f, %f, %f, %f]\n"
                                             "\tD (distortion coefficients): [%f, %f, %f, %f, %f]",
-                        msg->width,
-                        msg->height,
-                        msg->k[0], msg->k[1], msg->k[2], msg->k[3], msg->k[4], msg->k[5], msg->k[6], msg->k[7], msg->k[8],
-                        msg->d[0], msg->d[1], msg->d[2], msg->d[3], msg->d[4]);
+                        msg.width,
+                        msg.height,
+                        msg.k[0], msg.k[1], msg.k[2], msg.k[3], msg.k[4], msg.k[5], msg.k[6], msg.k[7], msg.k[8],
+                        msg.d[0], msg.d[1], msg.d[2], msg.d[3], msg.d[4]);
             received_camera_info_ = true;
         }
     }
@@ -142,7 +147,6 @@ private:
                 std::vector<cv::Vec3d> tvecs;
                 std::vector<cv::Vec3d> rvecs;
 
-                // cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F); // No lens distortion
                 cv::aruco::estimatePoseSingleMarkers(marker_corners, marker_size_, camera_matrix_, camera_distortion_, rvecs, tvecs);
 
                 if (tvecs.empty() || rvecs.empty())
